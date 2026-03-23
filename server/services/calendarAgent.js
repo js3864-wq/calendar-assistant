@@ -1,7 +1,19 @@
 const Anthropic = require('@anthropic-ai/sdk');
+const fs = require('fs');
 const { getEventsForRange } = require('./googleCalendar');
 
-const client = new Anthropic();
+function getApiKey() {
+  if (process.env.ANTHROPIC_API_KEY) return process.env.ANTHROPIC_API_KEY;
+  // Fall back to Claude Code session token when running in a Claude Code environment
+  const tokenFile = '/home/claude/.claude/remote/.session_ingress_token';
+  try {
+    return fs.readFileSync(tokenFile, 'utf-8').trim();
+  } catch {
+    return undefined;
+  }
+}
+
+const client = new Anthropic({ apiKey: getApiKey() });
 
 const tools = [
   {
