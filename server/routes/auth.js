@@ -2,6 +2,13 @@ const express = require('express');
 const { google } = require('googleapis');
 const router = express.Router();
 
+const requiredEnv = ['GOOGLE_CLIENT_ID', 'GOOGLE_CLIENT_SECRET', 'GOOGLE_REDIRECT_URI', 'CLIENT_URL'];
+const missingEnv = requiredEnv.filter((key) => !process.env[key]);
+
+if (missingEnv.length > 0) {
+  console.error('[auth] Missing required env vars:', missingEnv.join(', '));
+}
+
 const oauth2Client = new google.auth.OAuth2(
   process.env.GOOGLE_CLIENT_ID,
   process.env.GOOGLE_CLIENT_SECRET,
@@ -10,25 +17,50 @@ const oauth2Client = new google.auth.OAuth2(
 
 // Redirect to Google login
 router.get('/google', (req, res) => {
-  const url = oauth2Client.generateAuthUrl({
-    access_type: 'offline',
-    scope: [
-      'https://www.googleapis.com/auth/calendar.readonly',
-      'https://www.googleapis.com/auth/userinfo.email',
-    ],
-  });
-  res.redirect(url);
+  try {
+    if (missingEnv.length > 0) {
+      return res.status(500).json({
+        error: `Server misconfiguration. Missing env vars: ${missingEnv.join(', ')}`,
+      });
+    }
+
+    const url = oauth2Client.generateAuthUrl({
+      access_type: 'offline',
+      prompt: 'consent',
+      scope: [
+        'https://www.googleapis.com/auth/calendar.readonly',
+        'https://www.googleapis.com/auth/userinfo.email',
+      ],
+    });
+
+    return res.redirect(url);
+  } catch (err) {
+    console.error('[auth/google] Failed to generate auth URL:', err);
+    return res.status(500).json({ error: err.message || 'Failed to start Google OAuth' });
+  }
 });
 
 // Handle callback
 router.get('/google/callback', async (req, res) => {
   try {
+    if (missingEnv.length > 0) {
+      return res.status(500).json({
+        error: `Server misconfiguration. Missing env vars: ${missingEnv.join(', ')}`,
+      });
+    }
+
     const { code } = req.query;
+    if (!code) {
+      return res.status(400).json({ error: 'Missing OAuth code in query params' });
+    }
+
     const { tokens } = await oauth2Client.getToken(code);
     req.session.tokens = tokens;
-    res.redirect(process.env.CLIENT_URL);
+
+    return res.redirect(process.env.CLIENT_URL);
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    console.error('[auth/google/callback] OAuth callback error:', err);
+    return res.status(500).json({ error: err.message || 'Google OAuth callback failed' });
   }
 });
 
@@ -39,8 +71,13 @@ router.get('/status', (req, res) => {
 
 // Logout
 router.post('/logout', (req, res) => {
-  req.session.destroy();
-  res.json({ success: true });
+  req.session.destroy((err) => {
+    if (err) {
+      console.error('[auth/logout] Session destroy error:', err);
+      return res.status(500).json({ error: 'Failed to log out' });
+    }
+    return res.json({ success: true });
+  });
 });
 
 module.exports = router;
