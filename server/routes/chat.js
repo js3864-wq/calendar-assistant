@@ -5,10 +5,11 @@ const router = express.Router();
 
 router.post('/message', requireAuth, async (req, res) => {
   try {
-    const { messages } = req.body; // Full conversation history from client
+    const { messages } = req.body;
     const { reply, updatedMessages } = await runAgentTurn(messages, req.session.tokens);
     res.json({ reply, updatedMessages });
   } catch (err) {
+    console.error('Chat error:', err);
     res.status(500).json({ error: err.message });
   }
 });

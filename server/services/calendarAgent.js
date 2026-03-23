@@ -70,7 +70,7 @@ Today's date is: ${new Date().toLocaleDateString('en-US', { weekday: 'long', yea
 
 async function runAgentTurn(messages, tokens) {
   let response = await client.messages.create({
-    model: 'claude-opus-4-6',
+    model: 'claude-sonnet-4-6',
     max_tokens: 2048,
     system: SYSTEM_PROMPT,
     tools,
@@ -132,7 +132,7 @@ async function runAgentTurn(messages, tokens) {
 
     messages = [...messages, assistantMessage, { role: 'user', content: toolResults }];
     response = await client.messages.create({
-      model: 'claude-opus-4-6',
+      model: 'claude-sonnet-4-6',
       max_tokens: 2048,
       system: SYSTEM_PROMPT,
       tools,
