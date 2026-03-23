@@ -51,6 +51,51 @@ cd client && npm run dev
 
 Open [http://localhost:5173](http://localhost:5173)
 
+## Running the Tests
+
+The test suite uses [Playwright](https://playwright.dev/) and targets the deployed app at `https://calendar-assistant-phi.vercel.app`.
+
+### Prerequisites
+
+Install Playwright and its Chromium browser (only needed once):
+
+```bash
+npm install
+npx playwright install chromium
+```
+
+### Run all tests
+
+```bash
+npx playwright test
+```
+
+### Run a specific test file
+
+```bash
+npx playwright test tests/login.spec.js
+npx playwright test tests/ui.spec.js
+npx playwright test tests/chat.spec.js
+```
+
+### View the HTML report after a run
+
+```bash
+npx playwright show-report
+```
+
+### Test structure
+
+| File | What it tests |
+|------|--------------|
+| `tests/login.spec.js` | Login page loads, shows heading and Google button, button redirects to `accounts.google.com` |
+| `tests/ui.spec.js` | App shell (auth mocked): calendar panel shows *Your Schedule*, chat panel shows *AI Assistant* |
+| `tests/chat.spec.js` | Chat (auth mocked): suggested prompts render, clicking a prompt sends it, sending a message shows loading state |
+
+Auth is mocked by intercepting the backend `/auth/status` route at the network level — no real Google credentials are required to run the tests.
+
+---
+
 ## What it does
 
 - Google OAuth authentication
