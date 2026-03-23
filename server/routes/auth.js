@@ -2,9 +2,14 @@ const express = require('express');
 const { google } = require('googleapis');
 const router = express.Router();
 
-const requiredEnv = ['GOOGLE_CLIENT_ID', 'GOOGLE_CLIENT_SECRET', 'GOOGLE_REDIRECT_URI', 'CLIENT_URL'];
-const missingEnv = requiredEnv.filter((key) => !process.env[key]);
+const requiredEnv = [
+  'GOOGLE_CLIENT_ID',
+  'GOOGLE_CLIENT_SECRET',
+  'GOOGLE_REDIRECT_URI',
+  'CLIENT_URL',
+];
 
+const missingEnv = requiredEnv.filter((key) => !process.env[key]);
 if (missingEnv.length > 0) {
   console.error('[auth] Missing required env vars:', missingEnv.join(', '));
 }
@@ -57,7 +62,14 @@ router.get('/google/callback', async (req, res) => {
     const { tokens } = await oauth2Client.getToken(code);
     req.session.tokens = tokens;
 
-    return res.redirect(process.env.CLIENT_URL);
+    // Ensure session is persisted before redirecting back to frontend
+    req.session.save((saveErr) => {
+      if (saveErr) {
+        console.error('[auth/google/callback] Session save error:', saveErr);
+        return res.status(500).json({ error: 'Failed to save session' });
+      }
+      return res.redirect(process.env.CLIENT_URL);
+    });
   } catch (err) {
     console.error('[auth/google/callback] OAuth callback error:', err);
     return res.status(500).json({ error: err.message || 'Google OAuth callback failed' });
