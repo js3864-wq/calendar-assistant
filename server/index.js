@@ -7,11 +7,28 @@ const cors = require('cors');
 const app = express();
 const isProd = process.env.NODE_ENV === 'production';
 
-// Railway/Render/Heroku-style proxy support for secure cookies
+// Trust proxy headers (required on Railway/Heroku/etc. for secure cookies)
 app.set('trust proxy', 1);
 
+// Allow both apex and www in production
+const allowedOrigins = [
+  'https://10xtakehome.com',
+  'https://www.10xtakehome.com',
+  // keep localhost for local development
+  'http://localhost:5173',
+];
+
 app.use(cors({
-  origin: process.env.CLIENT_URL,
+  origin(origin, callback) {
+    // allow non-browser requests or same-origin requests with no origin header
+    if (!origin) return callback(null, true);
+
+    if (allowedOrigins.includes(origin)) {
+      return callback(null, true);
+    }
+
+    return callback(new Error(`CORS blocked for origin: ${origin}`));
+  },
   credentials: true,
 }));
 
@@ -23,8 +40,8 @@ app.use(session({
   resave: false,
   saveUninitialized: false,
   cookie: {
-    secure: isProd, // must be true in production (https)
-    sameSite: isProd ? 'none' : 'lax', // cross-site cookie support
+    secure: isProd,                // true in production (https)
+    sameSite: isProd ? 'none' : 'lax', // required for cross-site cookies in prod
     maxAge: 24 * 60 * 60 * 1000,
   },
 }));
@@ -33,6 +50,11 @@ app.use('/auth', require('./routes/auth'));
 app.use('/calendar', require('./routes/calendar'));
 app.use('/chat', require('./routes/chat'));
 
-app.listen(process.env.PORT || 3001, () =>
-  console.log(`Server running on port ${process.env.PORT || 3001}`)
-);
+// Optional: quick health check endpoint
+app.get('/health', (req, res) => {
+  res.json({ ok: true, env: process.env.NODE_ENV || 'undefined' });
+});
+
+app.listen(process.env.PORT || 3001, () => {
+  console.log(`Server running on port ${process.env.PORT || 3001}`);
+});
