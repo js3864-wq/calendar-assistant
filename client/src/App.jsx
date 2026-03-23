@@ -3,7 +3,7 @@ import LoginPage from './components/Auth/LoginPage';
 import AppShell from './components/Layout/AppShell';
 import axios from 'axios';
 
-const API = 'http://localhost:3001';
+const API = import.meta.env.VITE_API_URL || 'http://localhost:3001';;
 axios.defaults.withCredentials = true;
 
 export default function App() {
