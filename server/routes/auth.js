@@ -20,9 +20,20 @@ const oauth2Client = new google.auth.OAuth2(
   process.env.GOOGLE_REDIRECT_URI
 );
 
+function disableCache(res) {
+  res.set({
+    'Cache-Control': 'no-store, no-cache, must-revalidate, proxy-revalidate',
+    Pragma: 'no-cache',
+    Expires: '0',
+    Surrogate-Control: 'no-store',
+  });
+}
+
 // Redirect to Google login
 router.get('/google', (req, res) => {
   try {
+    disableCache(res);
+
     if (missingEnv.length > 0) {
       return res.status(500).json({
         error: `Server misconfiguration. Missing env vars: ${missingEnv.join(', ')}`,
@@ -47,6 +58,8 @@ router.get('/google', (req, res) => {
 // Handle callback
 router.get('/google/callback', async (req, res) => {
   try {
+    disableCache(res);
+
     if (missingEnv.length > 0) {
       return res.status(500).json({
         error: `Server misconfiguration. Missing env vars: ${missingEnv.join(', ')}`,
@@ -81,11 +94,13 @@ router.get('/google/callback', async (req, res) => {
 
 // Check session
 router.get('/status', (req, res) => {
+  disableCache(res);
   res.json({ authenticated: !!req.session.tokens });
 });
 
 // Logout
 router.post('/logout', (req, res) => {
+  disableCache(res);
   req.session.destroy((err) => {
     if (err) {
       console.error('[auth/logout] Session destroy error:', err);
