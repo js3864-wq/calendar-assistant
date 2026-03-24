@@ -7,7 +7,8 @@
     "start": "node server/index.js",
     "build": "cd client && npm install && npm run build",
     "dev:server": "node server/index.js",
-    "dev:client": "cd client && npm run dev"
+    "dev:client": "cd client && npm run dev",
+    "test:unit": "node --test server/services/meetingAnalysis.test.js client/src/utils/calendarUtils.test.js || node --test --test-isolation=none server/services/meetingAnalysis.test.js client/src/utils/calendarUtils.test.js"
   },
   "repository": {
     "type": "git",

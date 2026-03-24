@@ -1,5 +1,6 @@
 const Anthropic = require('@anthropic-ai/sdk');
 const { getEventsForRange } = require('./googleCalendar');
+const { analyzeMeetingLoad } = require('./meetingAnalysis');
 
 const client = new Anthropic();
 
@@ -93,18 +94,7 @@ async function executeToolCall(block, tokens) {
     const start = new Date();
     start.setDate(end.getDate() - weeks * 7);
     const events = await getEventsForRange(tokens, start.toISOString(), end.toISOString());
-    const meetings = events.filter(e => e.attendees && e.attendees.length > 1);
-    const totalMinutes = meetings.reduce((acc, e) => {
-      const s = new Date(e.start.dateTime || e.start.date);
-      const en = new Date(e.end.dateTime || e.end.date);
-      return acc + (en - s) / 60000;
-    }, 0);
-    return JSON.stringify({
-      totalMeetings: meetings.length,
-      totalHours: (totalMinutes / 60).toFixed(1),
-      hoursPerWeek: (totalMinutes / 60 / weeks).toFixed(1),
-      percentOfWorkday: ((totalMinutes / 60 / (weeks * 5 * 8)) * 100).toFixed(1),
-    });
+    return JSON.stringify(analyzeMeetingLoad(events, weeks));
   }
 
   if (block.name === 'draft_scheduling_email') {

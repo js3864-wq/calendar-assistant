@@ -147,7 +147,18 @@ The assistant can use:
 
 ## Running Tests
 
+The project includes both:
+
+- Playwright tests for browser flows and UI interactions
+- Lightweight unit tests for pure frontend and backend logic using Node's built-in test runner
+
 The Playwright suite mocks auth and backend responses at the network layer, so tests do not require real Google credentials.
+
+Run unit tests:
+
+```bash
+npm run test:unit
+```
 
 Install Playwright browser support if needed:
 

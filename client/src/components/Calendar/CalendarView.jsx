@@ -1,29 +1,8 @@
 import EventCard from './EventCard';
-
-function groupByDate(events) {
-  return events.reduce((acc, event) => {
-    const date = event.start?.dateTime
-      ? new Date(event.start.dateTime).toDateString()
-      : event.start?.date;
-    if (!acc[date]) acc[date] = [];
-    acc[date].push(event);
-    return acc;
-  }, {});
-}
-
-function formatDate(dateStr) {
-  const d = new Date(dateStr);
-  const today = new Date();
-  const tomorrow = new Date(today);
-  tomorrow.setDate(today.getDate() + 1);
-
-  if (d.toDateString() === today.toDateString()) return 'Today';
-  if (d.toDateString() === tomorrow.toDateString()) return 'Tomorrow';
-  return d.toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric' });
-}
+import { formatDateLabel, groupEventsByDate } from '../../utils/calendarUtils';
 
 export default function CalendarView({ events }) {
-  const grouped = groupByDate(events);
+  const grouped = groupEventsByDate(events);
 
   if (events.length === 0) {
     return (
@@ -47,7 +26,7 @@ export default function CalendarView({ events }) {
         <div key={date}>
           <div className="flex items-center gap-2 mb-3">
             <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold bg-indigo-500/10 text-indigo-400 border border-indigo-500/20 uppercase tracking-wider">
-              {formatDate(date)}
+              {formatDateLabel(date)}
             </span>
             <span className="text-slate-700 text-xs">{dayEvents.length} event{dayEvents.length !== 1 ? 's' : ''}</span>
           </div>
