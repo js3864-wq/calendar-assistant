@@ -1,7 +1,7 @@
 // @ts-check
 import { test, expect } from '@playwright/test';
 
-const BACKEND = 'https://calendar-assistant-production-476d.up.railway.app';
+const BACKEND = '**/api';
 
 const MOCK_EVENTS = [
   {

@@ -5,7 +5,11 @@ import ErrorBoundary from './components/ErrorBoundary';
 import LoginPage from './components/Auth/LoginPage';
 import AppShell from './components/Layout/AppShell';
 
-const API = import.meta.env.VITE_API_URL || 'http://localhost:3001';
+// Use same-origin API requests in production so the browser treats the session
+// cookie as first-party via the Vercel proxy instead of a third-party Railway cookie.
+const API = import.meta.env.DEV
+  ? (import.meta.env.VITE_API_URL || '/api')
+  : '/api';
 axios.defaults.withCredentials = true;
 
 function AppRouter() {
