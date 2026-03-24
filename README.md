@@ -103,24 +103,6 @@ npm run dev
 
 Open [http://localhost:5173](http://localhost:5173).
 
-## Production Deployment Notes
-
-This app uses a same-origin `/api` proxy in production so authentication works reliably on the deployed frontend domain.
-
-Production environment values:
-
-```env
-CLIENT_URL=https://www.10xtakehome.com
-GOOGLE_REDIRECT_URI=https://www.10xtakehome.com/api/auth/google/callback
-```
-
-Production flow:
-
-- Vercel serves the frontend
-- Vercel rewrites `/api/*` to the Railway backend
-- Google OAuth redirects back to `https://www.10xtakehome.com/api/auth/google/callback`
-- The browser keeps auth on the same site instead of relying on a third-party Railway cookie
-
 ## Features
 
 ### Calendar view
