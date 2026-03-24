@@ -27,6 +27,7 @@ function disableCache(res) {
     Expires: '0',
     'Surrogate-Control': 'no-store',
   });
+  res.vary('Cookie');
 }
 
 // Redirect to Google login
