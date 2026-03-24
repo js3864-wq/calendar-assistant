@@ -1,4 +1,7 @@
-export default function LoginPage({ API }) {
+import { useApp } from '../../context/AppContext';
+
+export default function LoginPage() {
+  const { API } = useApp();
   return (
     <div
       className="h-screen flex items-center justify-center bg-[#0d1117]"

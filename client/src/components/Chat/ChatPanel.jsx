@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect } from 'react';
 import MessageBubble from './MessageBubble';
 import SuggestedPrompts from './SuggestedPrompts';
-import axios from 'axios';
+import { useApp } from '../../context/AppContext';
 
 const SUGGESTED = [
   "How much time am I spending in meetings this week?",
@@ -10,34 +10,115 @@ const SUGGESTED = [
   "Recommend ways I can reduce meeting load.",
 ];
 
-export default function ChatPanel({ API }) {
+export default function ChatPanel() {
+  const { API } = useApp();
   const [messages, setMessages] = useState([]);
   const [displayMessages, setDisplayMessages] = useState([]);
   const [input, setInput] = useState('');
   const [loading, setLoading] = useState(false);
+  const [statusText, setStatusText] = useState('');
   const bottomRef = useRef(null);
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [displayMessages]);
+  }, [displayMessages, loading]);
 
   const sendMessage = async (text) => {
     if (!text.trim() || loading) return;
+
     const userMsg = { role: 'user', content: text };
     const newMessages = [...messages, userMsg];
     setMessages(newMessages);
     setDisplayMessages(prev => [...prev, { role: 'user', text }]);
     setInput('');
     setLoading(true);
+    setStatusText('');
+
+    let streamedText = '';
+    let addedPlaceholder = false;
+
+    const addOrUpdateAssistantBubble = (t) => {
+      if (!addedPlaceholder) {
+        addedPlaceholder = true;
+        setDisplayMessages(prev => [...prev, { role: 'assistant', text: t }]);
+      } else {
+        setDisplayMessages(prev => {
+          const updated = [...prev];
+          updated[updated.length - 1] = { role: 'assistant', text: t };
+          return updated;
+        });
+      }
+    };
 
     try {
-      const { data } = await axios.post(`${API}/chat/message`, { messages: newMessages });
-      setMessages(data.updatedMessages);
-      setDisplayMessages(prev => [...prev, { role: 'assistant', text: data.reply }]);
-    } catch {
-      setDisplayMessages(prev => [...prev, { role: 'assistant', text: 'Something went wrong. Please try again.' }]);
+      const response = await fetch(`${API}/chat/message`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({ messages: newMessages }),
+      });
+
+      if (!response.ok) {
+        const err = await response.json().catch(() => ({}));
+        throw new Error(err.error || `Request failed (${response.status})`);
+      }
+
+      const reader = response.body.getReader();
+      const decoder = new TextDecoder();
+      let buffer = '';
+
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+
+        buffer += decoder.decode(value, { stream: true });
+        const lines = buffer.split('\n');
+        buffer = lines.pop() ?? '';
+
+        for (const line of lines) {
+          if (!line.startsWith('data: ')) continue;
+          let data;
+          try {
+            data = JSON.parse(line.slice(6));
+          } catch {
+            continue;
+          }
+
+          if (data.type === 'token') {
+            streamedText += data.text;
+            addOrUpdateAssistantBubble(streamedText);
+            setStatusText('');
+          } else if (data.type === 'status') {
+            setStatusText(data.text);
+          } else if (data.type === 'done') {
+            setMessages(data.updatedMessages);
+          } else if (data.type === 'error') {
+            throw new Error(data.error);
+          }
+        }
+      }
+
+      // If no text came through at all, show a fallback
+      if (!addedPlaceholder) {
+        addOrUpdateAssistantBubble('Done.');
+      }
+    } catch (err) {
+      const errorText = err.message?.includes('429')
+        ? 'Too many requests. Please wait a moment before sending another message.'
+        : 'Something went wrong. Please try again.';
+
+      if (addedPlaceholder) {
+        setDisplayMessages(prev => {
+          const updated = [...prev];
+          updated[updated.length - 1] = { role: 'assistant', text: errorText };
+          return updated;
+        });
+      } else {
+        setDisplayMessages(prev => [...prev, { role: 'assistant', text: errorText }]);
+      }
     } finally {
       setLoading(false);
+      setStatusText('');
     }
   };
 
@@ -66,10 +147,16 @@ export default function ChatPanel({ API }) {
         {displayMessages.map((m, i) => <MessageBubble key={i} role={m.role} text={m.text} />)}
         {loading && (
           <div className="flex justify-start">
-            <div className="bg-[#161b22] border border-white/[0.08] rounded-xl rounded-bl-sm px-4 py-3 flex gap-1.5 items-center">
-              <span className="w-1.5 h-1.5 rounded-full bg-slate-400 animate-bounce" style={{ animationDelay: '0ms' }} />
-              <span className="w-1.5 h-1.5 rounded-full bg-slate-400 animate-bounce" style={{ animationDelay: '150ms' }} />
-              <span className="w-1.5 h-1.5 rounded-full bg-slate-400 animate-bounce" style={{ animationDelay: '300ms' }} />
+            <div className="bg-[#161b22] border border-white/[0.08] rounded-xl rounded-bl-sm px-4 py-3 flex gap-1.5 items-center min-h-[38px]">
+              {statusText ? (
+                <span className="text-slate-400 text-xs">{statusText}</span>
+              ) : (
+                <>
+                  <span className="w-1.5 h-1.5 rounded-full bg-slate-400 animate-bounce" style={{ animationDelay: '0ms' }} />
+                  <span className="w-1.5 h-1.5 rounded-full bg-slate-400 animate-bounce" style={{ animationDelay: '150ms' }} />
+                  <span className="w-1.5 h-1.5 rounded-full bg-slate-400 animate-bounce" style={{ animationDelay: '300ms' }} />
+                </>
+              )}
             </div>
           </div>
         )}

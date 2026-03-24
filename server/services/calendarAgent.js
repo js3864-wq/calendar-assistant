@@ -68,57 +68,98 @@ When analyzing time:
 Today's date is: ${new Date().toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}
 `;
 
-async function runAgentTurn(messages, tokens) {
-  let response = await client.messages.create({
-    model: 'claude-sonnet-4-6',
-    max_tokens: 2048,
-    system: SYSTEM_PROMPT,
-    tools,
-    messages,
-  });
+const TOOL_STATUS_MESSAGES = {
+  get_calendar_events: 'Fetching calendar events\u2026',
+  analyze_meeting_load: 'Analyzing your meeting load\u2026',
+  draft_scheduling_email: 'Drafting scheduling email\u2026',
+};
 
-  // Agentic loop — keep going until stop_reason is 'end_turn'
-  while (response.stop_reason === 'tool_use') {
+async function executeToolCall(block, tokens) {
+  if (block.name === 'get_calendar_events') {
+    const events = await getEventsForRange(tokens, block.input.startDate, block.input.endDate);
+    return JSON.stringify(events.map(e => ({
+      id: e.id,
+      summary: e.summary,
+      start: e.start,
+      end: e.end,
+      attendees: e.attendees?.map(a => a.email),
+      description: e.description,
+    })));
+  }
+
+  if (block.name === 'analyze_meeting_load') {
+    const weeks = block.input.weeks || 2;
+    const end = new Date();
+    const start = new Date();
+    start.setDate(end.getDate() - weeks * 7);
+    const events = await getEventsForRange(tokens, start.toISOString(), end.toISOString());
+    const meetings = events.filter(e => e.attendees && e.attendees.length > 1);
+    const totalMinutes = meetings.reduce((acc, e) => {
+      const s = new Date(e.start.dateTime || e.start.date);
+      const en = new Date(e.end.dateTime || e.end.date);
+      return acc + (en - s) / 60000;
+    }, 0);
+    return JSON.stringify({
+      totalMeetings: meetings.length,
+      totalHours: (totalMinutes / 60).toFixed(1),
+      hoursPerWeek: (totalMinutes / 60 / weeks).toFixed(1),
+      percentOfWorkday: ((totalMinutes / 60 / (weeks * 5 * 8)) * 100).toFixed(1),
+    });
+  }
+
+  if (block.name === 'draft_scheduling_email') {
+    return JSON.stringify({ status: 'ready', input: block.input });
+  }
+
+  throw new Error(`Unknown tool: ${block.name}`);
+}
+
+/**
+ * Runs the agentic loop with streaming support.
+ * onChunk is called with objects:
+ *   { type: 'token', text: string }   — streamed text token
+ *   { type: 'status', text: string }  — tool-execution status update
+ * Returns { updatedMessages }.
+ */
+async function streamAgentTurn(messages, tokens, onChunk) {
+  let currentMessages = messages;
+
+  while (true) {
+    const stream = client.messages.stream({
+      model: 'claude-sonnet-4-6',
+      max_tokens: 2048,
+      system: SYSTEM_PROMPT,
+      tools,
+      messages: currentMessages,
+    });
+
+    // Stream text tokens to the caller in real time
+    stream.on('text', (text) => {
+      onChunk({ type: 'token', text });
+    });
+
+    const response = await stream.finalMessage();
+
+    if (response.stop_reason !== 'tool_use') {
+      return {
+        updatedMessages: [...currentMessages, { role: 'assistant', content: response.content }],
+      };
+    }
+
+    // Process tool calls
     const assistantMessage = { role: 'assistant', content: response.content };
     const toolResults = [];
 
     for (const block of response.content) {
       if (block.type !== 'tool_use') continue;
 
+      if (TOOL_STATUS_MESSAGES[block.name]) {
+        onChunk({ type: 'status', text: TOOL_STATUS_MESSAGES[block.name] });
+      }
+
       let result;
       try {
-        if (block.name === 'get_calendar_events') {
-          const events = await getEventsForRange(tokens, block.input.startDate, block.input.endDate);
-          result = JSON.stringify(events.map(e => ({
-            id: e.id,
-            summary: e.summary,
-            start: e.start,
-            end: e.end,
-            attendees: e.attendees?.map(a => a.email),
-            description: e.description,
-          })));
-        } else if (block.name === 'analyze_meeting_load') {
-          const weeks = block.input.weeks || 2;
-          const end = new Date();
-          const start = new Date();
-          start.setDate(end.getDate() - weeks * 7);
-          const events = await getEventsForRange(tokens, start.toISOString(), end.toISOString());
-          const meetings = events.filter(e => e.attendees && e.attendees.length > 1);
-          const totalMinutes = meetings.reduce((acc, e) => {
-            const s = new Date(e.start.dateTime || e.start.date);
-            const en = new Date(e.end.dateTime || e.end.date);
-            return acc + (en - s) / 60000;
-          }, 0);
-          result = JSON.stringify({
-            totalMeetings: meetings.length,
-            totalHours: (totalMinutes / 60).toFixed(1),
-            hoursPerWeek: (totalMinutes / 60 / weeks).toFixed(1),
-            percentOfWorkday: ((totalMinutes / 60 / (weeks * 5 * 8)) * 100).toFixed(1),
-          });
-        } else if (block.name === 'draft_scheduling_email') {
-          // Claude handles the actual email drafting — just pass back the input
-          result = JSON.stringify({ status: 'ready', input: block.input });
-        }
+        result = await executeToolCall(block, tokens);
       } catch (err) {
         result = JSON.stringify({ error: err.message });
       }
@@ -130,20 +171,8 @@ async function runAgentTurn(messages, tokens) {
       });
     }
 
-    messages = [...messages, assistantMessage, { role: 'user', content: toolResults }];
-    response = await client.messages.create({
-      model: 'claude-sonnet-4-6',
-      max_tokens: 2048,
-      system: SYSTEM_PROMPT,
-      tools,
-      messages,
-    });
+    currentMessages = [...currentMessages, assistantMessage, { role: 'user', content: toolResults }];
   }
-
-  return {
-    reply: response.content.find(b => b.type === 'text')?.text || '',
-    updatedMessages: [...messages, { role: 'assistant', content: response.content }],
-  };
 }
 
-module.exports = { runAgentTurn };
+module.exports = { streamAgentTurn };
