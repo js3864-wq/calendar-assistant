@@ -4,6 +4,14 @@ const session = require('express-session');
 const cookieParser = require('cookie-parser');
 const cors = require('cors');
 
+// Fail fast with a clear message if critical env vars are missing
+const REQUIRED_ENV = ['SESSION_SECRET', 'GOOGLE_CLIENT_ID', 'GOOGLE_CLIENT_SECRET', 'GOOGLE_REDIRECT_URI', 'ANTHROPIC_API_KEY'];
+const missingCritical = REQUIRED_ENV.filter((k) => !process.env[k]);
+if (missingCritical.length > 0) {
+  console.error('[startup] FATAL: Missing required environment variables:', missingCritical.join(', '));
+  console.error('[startup] The server will start but affected features will not work.');
+}
+
 // Simple request logger
 function requestLogger(req, res, next) {
   const start = Date.now();
@@ -47,7 +55,7 @@ app.use(express.json());
 app.use(cookieParser());
 
 app.use(session({
-  secret: process.env.SESSION_SECRET,
+  secret: process.env.SESSION_SECRET || 'fallback-secret-set-SESSION_SECRET-env-var',
   resave: false,
   saveUninitialized: false,
   cookie: {

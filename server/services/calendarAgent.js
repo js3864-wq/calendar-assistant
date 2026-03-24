@@ -1,7 +1,16 @@
 const Anthropic = require('@anthropic-ai/sdk');
 const { getEventsForRange } = require('./googleCalendar');
 
-const client = new Anthropic();
+let _client = null;
+function getClient() {
+  if (!_client) {
+    if (!process.env.ANTHROPIC_API_KEY) {
+      throw new Error('ANTHROPIC_API_KEY environment variable is not set');
+    }
+    _client = new Anthropic();
+  }
+  return _client;
+}
 
 const tools = [
   {
@@ -125,7 +134,7 @@ async function streamAgentTurn(messages, tokens, onChunk) {
   let currentMessages = messages;
 
   while (true) {
-    const stream = client.messages.stream({
+    const stream = getClient().messages.stream({
       model: 'claude-sonnet-4-6',
       max_tokens: 2048,
       system: SYSTEM_PROMPT,
