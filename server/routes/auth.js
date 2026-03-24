@@ -31,7 +31,6 @@ router.get('/google', (req, res) => {
 
     const url = oauth2Client.generateAuthUrl({
       access_type: 'offline',
-      prompt: 'consent',
       scope: [
         'https://www.googleapis.com/auth/calendar.readonly',
         'https://www.googleapis.com/auth/userinfo.email',
@@ -60,6 +59,10 @@ router.get('/google/callback', async (req, res) => {
     }
 
     const { tokens } = await oauth2Client.getToken(code);
+    // Google only returns a refresh_token on first consent. Preserve any existing one.
+    if (!tokens.refresh_token && req.session.tokens?.refresh_token) {
+      tokens.refresh_token = req.session.tokens.refresh_token;
+    }
     req.session.tokens = tokens;
 
     // Ensure session is persisted before redirecting back to frontend
