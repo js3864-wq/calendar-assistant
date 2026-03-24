@@ -3,6 +3,7 @@ const express = require('express');
 const session = require('express-session');
 const cookieParser = require('cookie-parser');
 const cors = require('cors');
+const path = require('path');
 
 // Simple request logger
 function requestLogger(req, res, next) {
@@ -64,6 +65,13 @@ app.use('/chat', require('./routes/chat'));
 // Optional: quick health check endpoint
 app.get('/health', (req, res) => {
   res.json({ ok: true, env: process.env.NODE_ENV || 'undefined' });
+});
+
+// Serve React frontend (same-origin deployment — eliminates cross-site cookie issues)
+const clientBuildPath = path.join(__dirname, '../client/dist');
+app.use(express.static(clientBuildPath));
+app.get('*', (req, res) => {
+  res.sendFile(path.join(clientBuildPath, 'index.html'));
 });
 
 app.listen(process.env.PORT || 3001, () => {

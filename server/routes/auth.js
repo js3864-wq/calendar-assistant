@@ -71,7 +71,7 @@ router.get('/google/callback', async (req, res) => {
         console.error('[auth/google/callback] Session save error:', saveErr);
         return res.status(500).json({ error: 'Failed to save session' });
       }
-      return res.redirect(`${process.env.CLIENT_URL}/calendar`);
+      return res.redirect(`${process.env.CLIENT_URL || ''}/calendar`);
     });
   } catch (err) {
     console.error('[auth/google/callback] OAuth callback error:', err);
