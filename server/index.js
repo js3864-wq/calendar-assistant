@@ -4,6 +4,16 @@ const session = require('express-session');
 const cookieParser = require('cookie-parser');
 const cors = require('cors');
 
+// Simple request logger
+function requestLogger(req, res, next) {
+  const start = Date.now();
+  res.on('finish', () => {
+    const ms = Date.now() - start;
+    console.log(`[${new Date().toISOString()}] ${req.method} ${req.path} ${res.statusCode} ${ms}ms`);
+  });
+  next();
+}
+
 const app = express();
 const isProd = process.env.NODE_ENV === 'production';
 
@@ -32,6 +42,7 @@ app.use(cors({
   credentials: true,
 }));
 
+app.use(requestLogger);
 app.use(express.json());
 app.use(cookieParser());
 

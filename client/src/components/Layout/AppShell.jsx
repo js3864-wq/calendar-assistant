@@ -1,21 +1,13 @@
-import { useState, useEffect } from 'react';
+import { useApp } from '../../context/AppContext';
 import CalendarView from '../Calendar/CalendarView';
 import ChatPanel from '../Chat/ChatPanel';
-import axios from 'axios';
 
 const today = new Date().toLocaleDateString('en-US', {
   weekday: 'long', month: 'long', day: 'numeric', year: 'numeric',
 });
 
-export default function AppShell({ API }) {
-  const [events, setEvents] = useState([]);
-  const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    axios.get(`${API}/calendar/events`)
-      .then(r => { setEvents(r.data); setLoading(false); })
-      .catch(() => setLoading(false));
-  }, []);
+export default function AppShell() {
+  const { events, eventsLoading, eventsError, fetchEvents } = useApp();
 
   return (
     <div className="h-screen bg-[#0d1117] flex flex-col overflow-hidden">
@@ -41,7 +33,7 @@ export default function AppShell({ API }) {
         <div className="w-[55%] border-r border-white/[0.08] overflow-y-auto p-6">
           <div className="flex items-center justify-between mb-6">
             <h2 className="text-white text-lg font-semibold tracking-tight">Your Schedule</h2>
-            {loading && (
+            {eventsLoading && (
               <div className="flex gap-1">
                 <span className="w-1.5 h-1.5 rounded-full bg-indigo-400 animate-bounce" style={{ animationDelay: '0ms' }} />
                 <span className="w-1.5 h-1.5 rounded-full bg-indigo-400 animate-bounce" style={{ animationDelay: '150ms' }} />
@@ -49,12 +41,25 @@ export default function AppShell({ API }) {
               </div>
             )}
           </div>
-          {!loading && <CalendarView events={events} />}
+
+          {eventsError && !eventsLoading && (
+            <div className="flex flex-col items-center gap-3 py-8">
+              <p className="text-red-400 text-sm">{eventsError}</p>
+              <button
+                onClick={() => fetchEvents(true)}
+                className="text-xs text-indigo-400 hover:text-indigo-300 underline underline-offset-2"
+              >
+                Retry
+              </button>
+            </div>
+          )}
+
+          {!eventsLoading && !eventsError && <CalendarView events={events} />}
         </div>
 
         {/* Chat Panel */}
         <div className="w-[45%] flex flex-col">
-          <ChatPanel API={API} />
+          <ChatPanel />
         </div>
       </div>
     </div>
