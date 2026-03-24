@@ -70,7 +70,7 @@ app.get('/health', (req, res) => {
 // Serve React frontend (same-origin deployment — eliminates cross-site cookie issues)
 const clientBuildPath = path.join(__dirname, '../client/dist');
 app.use(express.static(clientBuildPath));
-app.get('*', (req, res) => {
+app.get('/{*path}', (req, res) => {
   res.sendFile(path.join(clientBuildPath, 'index.html'));
 });
 
