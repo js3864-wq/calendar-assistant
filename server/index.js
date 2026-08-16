@@ -1,7 +1,6 @@
 require('dotenv').config();
 const express = require('express');
 const session = require('express-session');
-const cookieParser = require('cookie-parser');
 const cors = require('cors');
 const path = require('path');
 
@@ -45,15 +44,14 @@ app.use(cors({
 
 app.use(requestLogger);
 app.use(express.json());
-app.use(cookieParser());
-
 app.use(session({
   secret: process.env.SESSION_SECRET,
   resave: false,
   saveUninitialized: false,
   cookie: {
-    secure: isProd,                // true in production (https)
-    sameSite: isProd ? 'none' : 'lax', // required for cross-site cookies in prod
+    secure: isProd,
+    httpOnly: true,
+    sameSite: 'lax',
     maxAge: 24 * 60 * 60 * 1000,
   },
 }));
